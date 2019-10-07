@@ -1,7 +1,14 @@
 #+TITLE: next-notebook-mode
 #+AUTHOR: Taylor Viti
+#+FILETAGS: :next_browser:
 
 A /next browser/ mode for editing Jupyter Notebooks.
 
 *NOTE:* This is largely a *WIP*, with features added on the fly as I find myself
  wanting them during my day to day work.
+
+For more information on =next-browser=, see:
+
+- https://github.com/next-browser/next
+- https://github.com/atlas-engineer/next/blob/master/documents/MANUAL.org
+
