@@ -7,33 +7,50 @@
   "Mode for interacting with Jupyter notebooks."
   ())
 
-(defun edit-cell-callback (js_result &optional (tempfile "/tmp/next-tmp.py"))
-  ;; Dump the field's contents to a tempfile
-  (with-open-file (s tempfile :direction :output :if-exists :supersede)
-    (format s "~a" js_result))
-  ;; Open an emacs session pointed at the file
-  (let* ((shell-cmd `("emacsclient" "--create-frame" ,tempfile)))
-    (uiop:run-program shell-cmd :output :string))
-  ;; Read the file's contents to the buffer's active input field.
-  (with-open-file (s tempfile :direction :input)
-    (let ((contents (make-string (file-length s)))
-	  (output nil))
-      (read-sequence contents s)
-      ;; Escape backticks (since those are JS multiline string char).
-      (setq output (ppcre:regex-replace-all "`" contents "\\\\`"))
-      ;; ;; Strip weird chars added by gmail
-      ;; (setq (remove #\Nul contents))
-      (rpc-buffer-evaluate-javascript
-       (current-buffer)
-       (format nil "cell.set_text(`~a`);" output)))))
+(defun edit-cell-callback (js-result)
+  ;; TODO: Decode the cell as a JSON object instead of a custom array
+  ;; use regexp to split the result
+  (ppcre:register-groups-bind (cell-type cell-contents)
+      ("\\['(.*?)',.*?['\"](.*?)['\"]\\]" js-result)
+    (let ((tempfile (format nil "/tmp/next-tmp.~a"
+			    ;; Use the right file extension 
+			    (cond ((string= cell-type "markdown") "md")
+				  ((string= cell-type "code") "py")
+				  (t ".txt")))))
+      ;; Dump the cell's contents to a tempfile
+      (with-open-file (s tempfile :direction :output :if-exists :supersede)
+	;; Replace \n with literal newlines
+	(format s "~a" (ppcre:regex-replace-all "\\\\n" cell-contents "
+")))
+      ;; Open an emacs buffer pointed at the file
+      (let* ((shell-cmd `("emacsclient" ,tempfile)))
+	(uiop:run-program shell-cmd :output :string))
+      ;; Read the file's contents to the browser buffer's active input field.
+      (with-open-file (s tempfile :direction :input)
+	(let ((contents (make-string (file-length s)))
+	      (output nil))
+	  (read-sequence contents s)
+	  ;; Escape backticks (since those are JS multiline string char).
+	  (setq output (ppcre:regex-replace-all "`" contents "\\\\`"))
+	  (rpc-buffer-evaluate-javascript
+	   (current-buffer)
+	   (format nil "
+(function () {
+    var cell = Jupyter.notebook.get_selected_cell();
+    cell.set_text(`~a`);
+})();" output)))))))
 
 (define-command edit-cell ()
   "Open a new emacs frame using the `emacsclient' mechanism, and place the value
   of the currently selected input element in a temporary buffer. Upon exiting
   using the <C-x #> keybinding, the text will be placed in the next-buffer's
   active input element."
-  (let ((cmd "var cell = Jupyter.notebook.get_selected_cell();
-cell.get_text()"))
+  (let ((cmd "
+(function () {
+    var cell = Jupyter.notebook.get_selected_cell();
+    return [cell.cell_type, cell.get_text()];
+})();
+"))
     (rpc-buffer-evaluate-javascript
      (current-buffer) cmd
      :callback #'edit-cell-callback)))
