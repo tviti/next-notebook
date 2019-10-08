@@ -12,3 +12,22 @@ For more information on =next-browser=, see:
 - https://github.com/next-browser/next
 - https://github.com/atlas-engineer/next/blob/master/documents/MANUAL.org
 
+** Features to add
+*** TODO Should we use pre-defined =Jupyter= events?
+    Currently, the up/down motion functions are re-implementations of JS events
+    already available in the API; Should they just hook those events directly?
+*** TODO /Visual-mode/ for multi-cell selection
+*** TODO Shutdown kernel command
+*** TODO More keybindings
+**** TODO =y= to copy cell(s)
+**** TODO =x= to cut cell(s)
+**** TODO =P= to paste below, =p= to paste above
+**** TODO =E= for ~edit-cell-metadata~
+**** TODO =C-c C-c= for running cells
+     If one or more cells are active, ~C-c C-c~ should run them. If no cells are
+     active, it should run the entire document.
+**** TODO Undo
+**** TODO Redo
+**** TODO Revert to checkpoint
+*** TODO Switch-to-shell command (may require =Jupyter= package on Emacs)
+*** TODO Start kernel command

@@ -1,10 +1,11 @@
-(uiop:define-package :next/jupyter-mode
+(uiop:define-package :next/jupyter-nb-mode
     (:use :next :common-lisp)
     (:documentation "Mode for interacting with Jupyter notebooks."))
-(in-package :next/jupyter-mode)
+(in-package :next/jupyter-nb-mode)
 
 ;; Cell movement commands
 (define-command select-next-cell ()
+  "Move one cell upwards, also moving the buffer's focus."
   (rpc-buffer-evaluate-javascript
    (current-buffer)
    (format nil "
@@ -12,14 +13,24 @@ Jupyter.notebook.select_next(true);
 Jupyter.notebook.focus_cell();")))
 
 (define-command select-prev-cell ()
+  "Move one cell downwards, also moving the buffer's focus."
   (rpc-buffer-evaluate-javascript
    (current-buffer)
    (format nil "
 Jupyter.notebook.select_prev(true);
 Jupyter.notebook.focus_cell();")))
 
-(define-mode jupyter-mode ()
-  "Mode for interacting with Jupyter notebooks."
+(define-command edit-cell ()
+  "Open the selected cell's source in an emacs buffer for editing, using a
+temporary file (whose location is currently hardcoded). The temporary files
+extension is chosen based on the cell's type, with code cells given a `.py`
+extension, markdown cells a `.md`, and all others `.txt`. Thus, emacs should
+drop you into the appropriate mode when the buffer is created."
+  (request-cell-data #'edit-cell-callback))
+
+(define-mode jupyter-nb-mode ()
+  "A mode for interacting with Jupyter notebooks, with facilities for editing
+the notebook's contents using the emacsclient mechanism."
   ((keymap-schemes
    :initform
    (let ((vi-map (make-keymap)))
@@ -32,6 +43,7 @@ Jupyter.notebook.focus_cell();")))
 (defun edit-str-with-emacs (str tempfile)
   "Dump the contents of str to the temporary file tempfile, then open tempfile
 in Emacs for editing. Note that this call is synchronous!"
+  ;; TODO: This is copy pasta w/ my init.lisp! (break off into a package?)
   ;; Dump the cell's contents to a tempfile
   (with-open-file (s tempfile :direction :output :if-exists :supersede)
     ;; Replace \n with literal newlines
@@ -48,7 +60,6 @@ in Emacs for editing. Note that this call is synchronous!"
       (ppcre:regex-replace-all "`" contents "\\\\`"))))
 
 (defun edit-cell-callback (js-result)
-  ;; TODO: Communicate the cell as a JSON object instead of a custom array
   (let* ((json-result (cl-json:decode-json-from-string js-result))
 	 (cell--type (rest (assoc :cell--type json-result)))
 	 (source (rest (assoc :source json-result)))
@@ -80,10 +91,6 @@ in Emacs for editing. Note that this call is synchronous!"
 "))
     (rpc-buffer-evaluate-javascript (current-buffer) cmd :callback callback)))
 
-(define-command edit-cell ()
-  "Open the selected cell's source in an emacs buffer for editing."
-  (request-cell-data #'edit-cell-callback))
-
 (defun edit-cell-metadata-callback (js-result)
   ;; The metadata object is usually a nested JSON obj, which we re-encoded to a
   ;; JSON string for shipment to emacs.
@@ -100,5 +107,7 @@ in Emacs for editing. Note that this call is synchronous!"
 })();" output))))
 
 (define-command edit-cell-metadata ()
-  "Open the selected cell's metadata in an emacs buffer for editing."
+  "Open the selected cell's metadata in an emacs buffer for editing, using a
+temporary file (whose location is currently hardcoded). The tempfile's extension
+will be .json."
   (request-cell-data #'edit-cell-metadata-callback))
