@@ -42,57 +42,63 @@ in Emacs for editing. Note that this call is synchronous!"
     (uiop:run-program shell-cmd :output :string))
   ;; Read the file's contents to the browser buffer's active input field.
   (with-open-file (s tempfile :direction :input)
-    (let ((contents (make-string (file-length s)))
-	  (output nil))
+    (let ((contents (make-string (file-length s))))
       (read-sequence contents s)
-      contents)))
+      ;; Escape backticks (since those are JS multiline string char).
+      (ppcre:regex-replace-all "`" contents "\\\\`"))))
 
 (defun edit-cell-callback (js-result)
   ;; TODO: Communicate the cell as a JSON object instead of a custom array
-  (ppcre:register-groups-bind (cell-type cell-contents)
-      ("\\['(.*?)',.*?['\"](.*?)['\"]\\]" js-result)
-    (let ((tempfile (format nil "/tmp/next-tmp.~a"
-			    ;; Use the right file extension 
-			    (cond ((string= cell-type "markdown") "md")
-				  ((string= cell-type "code") "py")
-				  (t ".txt"))))
-	  (contents nil))
-      (setq contents (edit-str-with-emacs cell-contents tempfile))
-      ;; Escape backticks (since those are JS multiline string char).
-      (setq output (ppcre:regex-replace-all "`" contents "\\\\`"))
-      (rpc-buffer-evaluate-javascript
-       (current-buffer)
-       (format nil "
+  (let* ((json-result (cl-json:decode-json-from-string js-result))
+	 (cell--type (rest (assoc :cell--type json-result)))
+	 (source (rest (assoc :source json-result)))
+	 (tempfile (format nil "/tmp/next-tmp.~a"
+			   ;; Use the right file extension 
+			   (cond ((string= cell--type "markdown") "md")
+				 ((string= cell--type "code") "py")
+				 (t ".txt"))))
+	 (output nil))
+    (setq output (edit-str-with-emacs source tempfile))
+    (rpc-buffer-evaluate-javascript (current-buffer) (format nil "
 (function () {
     var cell = Jupyter.notebook.get_selected_cell();
     cell.set_text(`~a`);
-})();" output)))))
+})();" output))))
+
+(defun request-cell-data (callback)
+  "Request the cell type, source, and metadata."
+  (let ((cmd "
+(function () {
+    Jupyter.notebook.save_checkpoint();
+    var cell = Jupyter.notebook.get_selected_cell();
+    var retval = new Object();
+    retval.cell_type = cell.cell_type;
+    retval.source = cell.get_text();
+    retval.metadata = cell.metadata;
+    return JSON.stringify(retval);
+})();
+"))
+    (rpc-buffer-evaluate-javascript (current-buffer) cmd :callback callback)))
 
 (define-command edit-cell ()
-  "Open a new emacs frame using the `emacsclient' mechanism, and place the value
-  of the currently selected input element in a temporary buffer. Upon exiting
-  using the <C-x #> keybinding, the text will be placed in the next-buffer's
-  active input element."
-  (let ((cmd "
+  "Open the selected cell's source in an emacs buffer for editing."
+  (request-cell-data #'edit-cell-callback))
+
+(defun edit-cell-metadata-callback (js-result)
+  ;; The metadata object is usually a nested JSON obj, which we re-encoded to a
+  ;; JSON string for shipment to emacs.
+  ;; TODO: Setup the decoder so that sub-level items are always strings.
+  (let* ((json-result (cl-json:decode-json-from-string js-result))
+	 (metadata (cl-json:encode-json-to-string
+		    (rest (assoc :metadata json-result))))
+	 (output (edit-str-with-emacs metadata "/tmp/next-tmp.json")))
+    (rpc-buffer-evaluate-javascript (current-buffer)
+				    (format nil "
 (function () {
-    Jupyter.notebook.save_checkpoint();
     var cell = Jupyter.notebook.get_selected_cell();
-    return [cell.cell_type, cell.get_text()];
-})();
-"))
-    (rpc-buffer-evaluate-javascript
-     (current-buffer) cmd
-     :callback #'edit-cell-callback)))
+    cell.metadata = ~a;
+})();" output))))
 
 (define-command edit-cell-metadata ()
-  ""
-  (let ((cmd "
-(function () {
-    Jupyter.notebook.save_checkpoint();
-    var cell = Jupyter.notebook.get_selected_cell();
-    return cell.metadata;
-})();
-"))
-    (rpc-buffer-evaluate-javascript
-     (current-buffer) cmd
-     :callback #'edit-cell-callback)))
+  "Open the selected cell's metadata in an emacs buffer for editing."
+  (request-cell-data #'edit-cell-metadata-callback))
