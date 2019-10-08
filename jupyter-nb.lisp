@@ -24,7 +24,7 @@ Jupyter.notebook.focus_cell();")))
    :initform
    (let ((vi-map (make-keymap)))
      (define-key :keymap vi-map
-       "i" #'edit-cell
+       "e" #'edit-cell
        "j" #'select-next-cell
        "k" #'select-prev-cell)
      (list :vi-normal vi-map)))))
@@ -72,6 +72,19 @@ Jupyter.notebook.focus_cell();")))
     Jupyter.notebook.save_checkpoint();
     var cell = Jupyter.notebook.get_selected_cell();
     return [cell.cell_type, cell.get_text()];
+})();
+"))
+    (rpc-buffer-evaluate-javascript
+     (current-buffer) cmd
+     :callback #'edit-cell-callback)))
+
+(define-command edit-cell-metadata ()
+  ""
+  (let ((cmd "
+(function () {
+    Jupyter.notebook.save_checkpoint();
+    var cell = Jupyter.notebook.get_selected_cell();
+    return cell.metadata;
 })();
 "))
     (rpc-buffer-evaluate-javascript
