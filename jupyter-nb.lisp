@@ -47,6 +47,7 @@
   active input element."
   (let ((cmd "
 (function () {
+    Jupyter.notebook.save_checkpoint();
     var cell = Jupyter.notebook.get_selected_cell();
     return [cell.cell_type, cell.get_text()];
 })();
