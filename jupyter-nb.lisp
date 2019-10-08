@@ -3,9 +3,31 @@
     (:documentation "Mode for interacting with Jupyter notebooks."))
 (in-package :next/jupyter-mode)
 
+;; Cell movement commands
+(define-command select-next-cell ()
+  (rpc-buffer-evaluate-javascript
+   (current-buffer)
+   (format nil "
+Jupyter.notebook.select_next(true);
+Jupyter.notebook.focus_cell();")))
+
+(define-command select-prev-cell ()
+  (rpc-buffer-evaluate-javascript
+   (current-buffer)
+   (format nil "
+Jupyter.notebook.select_prev(true);
+Jupyter.notebook.focus_cell();")))
+
 (define-mode jupyter-mode ()
   "Mode for interacting with Jupyter notebooks."
-  ())
+  ((keymap-schemes
+   :initform
+   (let ((vi-map (make-keymap)))
+     (define-key :keymap vi-map
+       "i" #'edit-cell
+       "j" #'select-next-cell
+       "k" #'select-prev-cell)
+     (list :vi-normal vi-map)))))
 
 (defun edit-cell-callback (js-result)
   ;; TODO: Decode the cell as a JSON object instead of a custom array
