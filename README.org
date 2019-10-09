@@ -13,6 +13,7 @@ For more information on =next-browser=, see:
 - https://github.com/atlas-engineer/next/blob/master/documents/MANUAL.org
 
 ** Features to add
+*** TODO Notebook buffer crashes on navigation away
 *** TODO Should we use pre-defined =Jupyter= events?
     Currently, the up/down motion functions are re-implementations of JS events
     already available in the API; Should they just hook those events directly?
