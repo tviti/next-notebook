@@ -7,10 +7,14 @@
 ;; That or lean on parenscript for doing this.
 
 (ps:defpsmacro %nb-chain (&rest args)
+  "Like calling `ps:chain', where each result starts with Jupyter.notebook"
   `(ps:chain *jupyter notebook ,@args))
 
 (ps:defpsmacro %get-nb ()
   '(%nb-chain))
+
+(ps:defpsmacro %parse-json (str)
+  `(ps:chain *json* (parse ,str)))
 
 ;; TODO: These could be implemented as closures of a single function called
 ;; something like `select-cell-relative' (that does relative cell motion).
@@ -133,52 +137,51 @@ in Emacs for editing. Note that this call is synchronous!"
       (read-sequence contents s)
       contents)))
 
+(defun request-cell-data (callback &optional (buffer (current-buffer)))
+  "Request the cell type, source, and metadata. The result is packed to JSON."
+  (rpc-buffer-evaluate-javascript
+   buffer
+   (ps:ps (let ((retval (ps:new *Object))
+		(cell (%nb-chain (get_selected_cell))))
+	    (%nb-chain (save_checkpoint))
+	    (ps:setf (ps:@ retval cell-type) (ps:chain cell cell_type))
+	    (ps:setf (ps:@ retval cell-source) (ps:chain cell (get_text)))
+	    (ps:setf (ps:@ retval metadata) (ps:@ cell metadata))
+	    (ps:chain *json* (stringify retval))))
+   :callback callback))
+
 (defun edit-cell-callback (js-result buffer)
   (let* ((json-result (cl-json:decode-json-from-string js-result))
-	 (cell--type (rest (assoc :cell--type json-result)))
-	 (source (rest (assoc :source json-result)))
+	 (cell-type (rest (assoc :cell-type json-result)))
+	 (cell-source (rest (assoc :cell-source json-result)))
 	 (tempfile (format nil "/tmp/next-tmp.~a"
 			   ;; Use the right file extension 
-			   (cond ((string= cell--type "markdown") "md")
-				 ((string= cell--type "code") "py")
+			   (cond ((string= cell-type "markdown") "md")
+				 ((string= cell-type "code") "py")
 				 (t ".txt"))))
-	 (output (edit-str-with-emacs source tempfile)))
+	 (output (edit-str-with-emacs cell-source tempfile)))
     (rpc-buffer-evaluate-javascript
      buffer
-     (ps:ps (%nb-chain (get_selected_cell) (set_text (ps:lisp output)))))))
+     (ps:ps (%nb-chain (get_selected_cell)
+		       (set_text (ps:lisp output)))))))
 
-(defun request-cell-data (callback)
-  "Request the cell type, source, and metadata."
-  (let ((cmd "
-(function () {
-    Jupyter.notebook.save_checkpoint();
-    var cell = Jupyter.notebook.get_selected_cell();
-    var retval = new Object();
-    retval.cell_type = cell.cell_type;
-    retval.source = cell.get_text();
-    retval.metadata = cell.metadata;
-    return JSON.stringify(retval);
-})();
-"))
-    (rpc-buffer-evaluate-javascript (current-buffer) cmd :callback callback)))
-
-(defun edit-cell-metadata-callback (js-result)
+(defun edit-cell-metadata-callback (js-result buffer)
   ;; The metadata object is usually a nested JSON obj, which we re-encoded to a
   ;; JSON string for shipment to emacs.
   ;; TODO: Setup the decoder so that sub-level items are always strings.
   (let* ((json-result (cl-json:decode-json-from-string js-result))
-	 (metadata (cl-json:encode-json-to-string
-		    (rest (assoc :metadata json-result))))
-	 (output (edit-str-with-emacs metadata "/tmp/next-tmp.json")))
-    (rpc-buffer-evaluate-javascript (current-buffer)
-				    (format nil "
-(function () {
-    var cell = Jupyter.notebook.get_selected_cell();
-    cell.metadata = ~a;
-})();" output))))
+	 (metadata-str (cl-json:encode-json-to-string
+			(rest (assoc :metadata json-result))))
+	 (output-str (edit-str-with-emacs metadata-str "/tmp/next-tmp.json")))
+    (rpc-buffer-evaluate-javascript
+     buffer
+     (ps:ps (let ((new-metadata (%parse-json (ps:lisp output-str))))
+	      (setf (%nb-chain (get_selected_cell) metadata) new-metadata))))))
 
 (define-command edit-cell-metadata ()
   "Open the selected cell's metadata in an emacs buffer for editing, using a
 temporary file (whose location is currently hardcoded). The tempfile's extension
 will be .json."
-  (request-cell-data #'edit-cell-metadata-callback))
+  (request-cell-data (lambda (js-result)
+		       (edit-cell-metadata-callback
+			js-result (current-buffer)))))
