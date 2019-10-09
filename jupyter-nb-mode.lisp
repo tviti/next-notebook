@@ -3,7 +3,9 @@
     (:documentation "Mode for interacting with Jupyter notebooks."))
 (in-package :next/jupyter-nb-mode)
 
-;; Cell movement commands
+;; TODO: I think a macro might be nice for all of these glue-calls to JS.
+;; That or lean on parenscript for doing this.
+
 (define-command select-next-cell ()
   "Move one cell upwards, also moving the buffer's focus."
   (rpc-buffer-evaluate-javascript
@@ -20,6 +22,42 @@ Jupyter.notebook.focus_cell();")))
 Jupyter.notebook.select_prev(true);
 Jupyter.notebook.focus_cell();")))
 
+(define-command select-cell (idx)
+  "Select cell idx, also moving the buffer's focus."
+  (rpc-buffer-evaluate-javascript
+   (current-buffer)
+   (format nil "
+Jupyter.notebook.select(~d, true);
+Jupyter.notebook.focus_cell();" idx)))
+
+(define-command select-first-cell ()
+  (select-cell 0))
+
+(define-command select-last-cell ()
+  (rpc-buffer-evaluate-javascript
+   (current-buffer)
+   "
+(function () {
+    var nb = Jupyter.notebook;
+    var cells = nb.get_cells();
+    nb.select(cells.length - 1);
+    nb.focus_cell();
+})();"))
+
+(define-command execute-selected-cells ()
+  "Run the currently selected cell(s)."
+  (rpc-buffer-evaluate-javascript
+   (current-buffer)
+   "
+Jupyter.notebook.execute_selected_cells();"))
+
+(define-command execute-all-cells ()
+  "Run the entire notebook."
+  (rpc-buffer-evaluate-javascript
+   (current-buffer)
+   "
+Jupyter.notebook.execute_all_cells();"))
+
 (define-command edit-cell ()
   "Open the selected cell's source in an emacs buffer for editing, using a
 temporary file (whose location is currently hardcoded). The temporary files
@@ -28,6 +66,35 @@ extension, markdown cells a `.md`, and all others `.txt`. Thus, emacs should
 drop you into the appropriate mode when the buffer is created."
   (request-cell-data #'edit-cell-callback))
 
+(define-command save-notebook ()
+  "Save the currently active notebook."
+  (rpc-buffer-evaluate-javascript
+   (current-buffer)
+   "
+Jupyter.notebook.save_notebook();"))
+
+(define-command save-checkpoint ()
+  "Create a checkpoint (not sure; I don't manually do this so I'm not positive
+what constitutes a checkpoint)."
+  (rpc-buffer-evaluate-javascript
+   (current-buffer)
+   "
+Jupyter.notebook.save_checkpoint();"))
+
+(define-command copy-cell ()
+  "Copy the selected cell(s)."
+  (rpc-buffer-evaluate-javascript
+   (current-buffer)
+   "
+Juptery.notebook.copy_cell();"))
+
+(define-command scroll-some (ammt)
+  "Scroll the page by ammt using the notebooks scroll_manager."
+  (rpc-buffer-evaluate-javascript
+   (current-buffer)
+   (format nil "
+Jupyter.notebook.scroll_manager.scroll_some(~f);" ammt)))
+
 (define-mode jupyter-nb-mode ()
   "A mode for interacting with Jupyter notebooks, with facilities for editing
 the notebook's contents using the emacsclient mechanism."
@@ -35,9 +102,15 @@ the notebook's contents using the emacsclient mechanism."
    :initform
    (let ((vi-map (make-keymap)))
      (define-key :keymap vi-map
+       "g g" #'select-first-cell
+       "G" #'select-last-cell
+       "C-c C-c" #'execute-selected-cells
+       "C-c C-l" #'execute-all-cells
        "e" #'edit-cell
        "j" #'select-next-cell
-       "k" #'select-prev-cell)
+       "k" #'select-prev-cell
+       "C-e" (lambda () (scroll-some 0.25))
+       "C-y" (lambda () (scroll-some -0.25)))
      (list :vi-normal vi-map)))))
 
 (defun edit-str-with-emacs (str tempfile)
