@@ -37,7 +37,7 @@
   (rpc-buffer-evaluate-javascript
    buffer
    (ps:ps (%nb-chain (select (ps:lisp idx) t))
-	  (%nb-call-method focus_cell))))
+	  (%nb-chain (focus_cell)))))
 
 (define-command select-first-cell (&optional (buffer (current-buffer)))
   (select-cell 0 buffer))
@@ -45,7 +45,7 @@
 (define-command select-last-cell (&optional (buffer (current-buffer)))
   (rpc-buffer-evaluate-javascript
    buffer
-   (ps:ps (let* ((n-cells (ps:@ (%nb-call-method get_cells) length)))
+   (ps:ps (let* ((n-cells (ps:@ (%nb-chain (get_cells)) length)))
 	    (%nb-chain (select (- n-cells 1)))
 	    (%nb-chain (focus_cell))))))
 
