@@ -3,9 +3,6 @@
     (:documentation "Mode for interacting with Jupyter notebooks."))
 (in-package :next/jupyter-nb-mode)
 
-;; TODO: I think a macro might be nice for all of these glue-calls to JS.
-;; That or lean on parenscript for doing this.
-
 (ps:defpsmacro %nb-chain (&rest args)
   "Like calling `ps:chain', where each result starts with Jupyter.notebook"
   `(ps:chain *jupyter notebook ,@args))
@@ -15,6 +12,29 @@
 
 (ps:defpsmacro %parse-json (str)
   `(ps:chain *json* (parse ,str)))
+
+(defmacro define-ps-command (script-name args &body script-body)
+  "This macro is a ripoff of `define-parenscript', modified to create a command
+callable from the browser (wheras the `define-parenscript' just makes a function
+
+Define parenscript command SCRIPT-NAME.  SCRIPT-BODY must be a valid parenscript
+and will be wrapped in (PS:PS ...).  Any Lisp expression must be wrapped in
+(PS:LISP ...).
+
+The returned function is called over 3 key arguments beside ARGS: - %CALLBACK: a
+function to call when the script returns.  Defaults to nil.  - %BUFFER: The
+buffer used to execute the script.  Defaults to the current buffer.
+
+Those variables can be used from the SCRIPT-BODY (the parenscript code).
+
+ARGS must be key arguments."
+  `(progn
+     (define-command ,script-name ,(append '(&key ((:callback %callback) nil)
+                                    ((:buffer %buffer) (current-buffer)))
+                           args)
+       (rpc-buffer-evaluate-javascript %buffer
+                                       (ps:ps ,@script-body)
+                                       :callback %callback))))
 
 ;; TODO: These could be implemented as closures of a single function called
 ;; something like `select-cell-relative' (that does relative cell motion).
@@ -61,6 +81,22 @@
    buffer
    (ps:ps (%nb-chain (execute_all_cells)))))
 
+(define-ps-command open-below ()
+  (%nb-chain (insert_cell_below))
+  (%nb-chain (select_next))
+  (%nb-chain (focus_cell)))
+
+(define-ps-command open-above ()
+  (%nb-chain (insert_cell_above))
+  (%nb-chain (select_prev))
+  (%nb-chain (focus_cell)))
+
+(define-ps-command copy-cell ()
+  (%nb-chain (copy_cell)))
+
+(define-ps-command delete-cells ()
+  (%nb-chain (delete_cells)))
+
 (define-command edit-cell (&optional (buffer (current-buffer)))
   "Open the selected cell's source in an emacs buffer for editing, using a
 temporary file (whose location is currently hardcoded). The temporary files
@@ -102,13 +138,22 @@ what constitutes a checkpoint)."
    buffer
    (ps:ps (%nb-chain scroll_manager (scroll (ps:lisp ammt))))))
 
+(define-command scroll-nb-up (&optional (buffer (current-buffer)))
+  "Scroll the document upwards by one page."
+  (scroll -1))
+
+(define-command scroll-nb-down (&optional (buffer (current-buffer)))
+  "Scroll the document downwards by one page."
+  (scroll 1))
+
 (define-mode jupyter-nb-mode ()
   "A mode for interacting with Jupyter notebooks, with facilities for editing
 the notebook's contents using the emacsclient mechanism."
   ((keymap-schemes
    :initform
    (let ((vi-map (make-keymap))
-	 (emacs-map (make-keymap)))
+	 (emacs-map (make-keymap))
+	 (scroll-ammt 0.25))
 
      (define-key :keymap vi-map
        "g g" #'select-first-cell
@@ -117,16 +162,23 @@ the notebook's contents using the emacsclient mechanism."
        "C-c C-l" #'execute-all-cells
        "e" #'edit-cell
        "E" #'edit-cell-metadata
+       "o" #'open-below  ;; NOTE: These will override default bindings!
+       "O" #'open-above  ;; NOTE: These will override default bindings!
+       "d" #'delete-cells
        "j" #'select-next-cell
        "k" #'select-prev-cell
-       "C-e" (lambda () (scroll-some 0.1))
-       "C-y" (lambda () (scroll-some -0.1)))
+       "C-e" (lambda () (scroll-some scroll-ammt))
+       "C-y" (lambda () (scroll-some (* -1 scroll-ammt)))
+       "C-f" #'scroll-nb-down
+       "C-b" #'scroll-nb-up)
 
      (define-key :keymap emacs-map
        "C-n" #'select-next-cell
        "C-p" #'select-prev-cell
        "C-c C-c" #'execute-selected-cells
-       "C-c C-l" #'execute-all-cells)
+       "C-c C-l" #'execute-all-cells
+       "SPACE" #'scroll-nb-down
+       "s-SPACE" #'scroll-nb-up)
 
        (list :vi-normal vi-map
 	     :emacs emacs-map)))))
