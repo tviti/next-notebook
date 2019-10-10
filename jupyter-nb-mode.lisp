@@ -107,18 +107,29 @@ what constitutes a checkpoint)."
 the notebook's contents using the emacsclient mechanism."
   ((keymap-schemes
    :initform
-   (let ((vi-map (make-keymap)))
+   (let ((vi-map (make-keymap))
+	 (emacs-map (make-keymap)))
+
      (define-key :keymap vi-map
        "g g" #'select-first-cell
        "G" #'select-last-cell
        "C-c C-c" #'execute-selected-cells
        "C-c C-l" #'execute-all-cells
        "e" #'edit-cell
+       "E" #'edit-cell-metadata
        "j" #'select-next-cell
        "k" #'select-prev-cell
        "C-e" (lambda () (scroll-some 0.1))
        "C-y" (lambda () (scroll-some -0.1)))
-     (list :vi-normal vi-map)))))
+
+     (define-key :keymap emacs-map
+       "C-n" #'select-next-cell
+       "C-p" #'select-prev-cell
+       "C-c C-c" #'execute-selected-cells
+       "C-c C-l" #'execute-all-cells)
+
+       (list :vi-normal vi-map
+	     :emacs emacs-map)))))
 
 ;; TODO: This is copy pasta w/ my init.lisp! (break off into a package?)
 (defun edit-str-with-emacs (str tempfile)
