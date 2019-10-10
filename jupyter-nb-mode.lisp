@@ -38,36 +38,28 @@ ARGS must be key arguments."
 
 ;; TODO: These could be implemented as closures of a single function called
 ;; something like `select-cell-relative' (that does relative cell motion).
-(define-command select-next-cell (&optional (buffer (current-buffer)))
+(define-ps-command select-next-cell ()
   "Move one cell upwards, also moving the buffer's focus."
-  (rpc-buffer-evaluate-javascript
-   buffer
-   (ps:ps (%nb-chain (select_next t))
-	  (%nb-chain (focus_cell)))))
+   (%nb-chain (select_next t))
+   (%nb-chain (focus_cell)))
 
-(define-command select-prev-cell (&optional (buffer (current-buffer)))
+(define-ps-command select-prev-cell ()
   "Move one cell downwards, also moving the buffer's focus."
-  (rpc-buffer-evaluate-javascript
-   buffer
-   (ps:ps (%nb-chain (select_prev t))
-	  (%nb-chain (focus_cell)))))
+   (%nb-chain (select_prev t))
+   (%nb-chain (focus_cell)))
 
-(define-command select-cell (idx &optional (buffer (current-buffer)))
+(define-ps-command select-cell ((idx))
   "Select cell idx, also moving the buffer's focus."
-  (rpc-buffer-evaluate-javascript
-   buffer
-   (ps:ps (%nb-chain (select (ps:lisp idx) t))
-	  (%nb-chain (focus_cell)))))
+   (%nb-chain (select (ps:lisp idx) t))
+   (%nb-chain (focus_cell)))
 
 (define-command select-first-cell (&optional (buffer (current-buffer)))
-  (select-cell 0 buffer))
+  (select-cell :idx 0 :buffer buffer))
 
-(define-command select-last-cell (&optional (buffer (current-buffer)))
-  (rpc-buffer-evaluate-javascript
-   buffer
-   (ps:ps (let* ((n-cells (ps:@ (%nb-chain (get_cells)) length)))
-	    (%nb-chain (select (- n-cells 1)))
-	    (%nb-chain (focus_cell))))))
+(define-ps-command select-last-cell ()
+  (let* ((n-cells (ps:@ (%nb-chain (get_cells)) length)))
+    (%nb-chain (select (- n-cells 1)))
+    (%nb-chain (focus_cell))))
 
 (define-command execute-selected-cells (&optional (buffer (current-buffer)))
   "Run the currently selected cell(s)."
@@ -75,11 +67,9 @@ ARGS must be key arguments."
    buffer
    (ps:ps (%nb-chain (execute_selected_cells)))))
 
-(define-command execute-all-cells (&optional (buffer (current-buffer)))
+(define-ps-command execute-all-cells ()
   "Run the entire notebook."
-  (rpc-buffer-evaluate-javascript
-   buffer
-   (ps:ps (%nb-chain (execute_all_cells)))))
+  (%nb-chain (execute_all_cells)))
 
 (define-ps-command open-below ()
   (%nb-chain (insert_cell_below))
@@ -107,44 +97,30 @@ drop you into the appropriate mode when the buffer is created."
   (request-cell-data (lambda (retval)
 		       (edit-cell-callback retval buffer))))
 
-(define-command save-notebook (&optional (buffer (current-buffer)))
+(define-ps-command save-notebook ()
   "Save the currently active notebook."
-  (rpc-buffer-evaluate-javascript
-   buffer
-   (ps:ps (%nb-chain (save_notebook)))))
+  (%nb-chain (save_notebook)))
 
-(define-command save-checkpoint (&optional (buffer (current-buffer)))
+(define-ps-command save-checkpoint ()
   "Create a checkpoint (not sure; I don't manually do this so I'm not positive
 what constitutes a checkpoint)."
-  (rpc-buffer-evaluate-javascript
-   buffer
-   (ps:ps (%nb-chain (save_checkpoint)))))
+  (%nb-chain (save_checkpoint)))
 
-(define-command copy-cell (&optional (buffer (current-buffer)))
+(define-ps-command copy-cell ()
   "Copy the selected cell(s)."
-  (rpc-buffer-evaluate-javascript
-   buffer
-   (ps:ps (%nb-chain (copy_cell)))))
+  (%nb-chain (copy_cell)))
 
-(define-command scroll-some (ammt &optional (buffer (current-buffer)))
-  "Scroll the page by ammt using the notebooks scroll_manager."
-  (rpc-buffer-evaluate-javascript
-   buffer
-   (ps:ps (%nb-chain scroll_manager (scroll_some (ps:lisp ammt))))))
+(define-ps-command nb-scroll ((ammt))
+  "Scroll the page by ammt using the notebook's scroll_manager."
+   (%nb-chain scroll_manager (scroll (ps:lisp ammt))))
 
-(define-command scroll (ammt &optional (buffer (current-buffer)))
-  "Scroll the page by ammt using the notebooks scroll_manager."
-  (rpc-buffer-evaluate-javascript
-   buffer
-   (ps:ps (%nb-chain scroll_manager (scroll (ps:lisp ammt))))))
-
-(define-command scroll-nb-up (&optional (buffer (current-buffer)))
+(define-command nb-scroll-page-up (&optional (buffer (current-buffer)))
   "Scroll the document upwards by one page."
-  (scroll -1))
+  (nb-scroll :ammt -1))
 
-(define-command scroll-nb-down (&optional (buffer (current-buffer)))
+(define-command nb-scroll-page-down (&optional (buffer (current-buffer)))
   "Scroll the document downwards by one page."
-  (scroll 1))
+  (nb-scroll :ammt 1))
 
 (define-mode jupyter-nb-mode ()
   "A mode for interacting with Jupyter notebooks, with facilities for editing
@@ -167,18 +143,18 @@ the notebook's contents using the emacsclient mechanism."
        "d" #'delete-cells
        "j" #'select-next-cell
        "k" #'select-prev-cell
-       "C-e" (lambda () (scroll-some scroll-ammt))
-       "C-y" (lambda () (scroll-some (* -1 scroll-ammt)))
-       "C-f" #'scroll-nb-down
-       "C-b" #'scroll-nb-up)
+       "C-e" (lambda () (nb-scroll :ammt scroll-ammt))
+       "C-y" (lambda () (nb-scroll :ammt (* -1 scroll-ammt)))
+       "C-f" #'nb-scroll-page-down
+       "C-b" #'nb-scroll-page-up)
 
      (define-key :keymap emacs-map
        "C-n" #'select-next-cell
        "C-p" #'select-prev-cell
        "C-c C-c" #'execute-selected-cells
        "C-c C-l" #'execute-all-cells
-       "SPACE" #'scroll-nb-down
-       "s-SPACE" #'scroll-nb-up)
+       "SPACE" #'nb-scroll-page-down
+       "s-SPACE" #'nb-scroll-page-up)
 
        (list :vi-normal vi-map
 	     :emacs emacs-map)))))
