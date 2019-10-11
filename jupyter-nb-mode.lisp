@@ -136,8 +136,8 @@ the notebook's contents using the emacsclient mechanism."
        "G" #'select-last-cell
        "C-c C-c" #'execute-selected-cells
        "C-c C-l" #'execute-all-cells
-       "e" #'edit-cell
-       "E" #'edit-cell-metadata
+       "C-c '" #'edit-cell
+       "C-c \"" #'edit-cell-metadata
        "o" #'open-below  ;; NOTE: These will override default bindings!
        "O" #'open-above  ;; NOTE: These will override default bindings!
        "d" #'delete-cells
