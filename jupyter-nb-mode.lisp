@@ -31,7 +31,8 @@ ARGS must be key arguments."
   `(progn
      (define-command ,script-name ,(append '(&key ((:callback %callback) nil)
                                     ((:buffer %buffer) (current-buffer)))
-                           args)
+					   args)
+       ,(if (stringp (first script-body)) (first script-body))
        (rpc-buffer-evaluate-javascript %buffer
                                        (ps:ps ,@script-body)
                                        :callback %callback))))
@@ -121,6 +122,53 @@ what constitutes a checkpoint)."
 (define-command nb-scroll-page-down (&optional (buffer (current-buffer)))
   "Scroll the document downwards by one page."
   (nb-scroll :ammt 1))
+
+(define-parenscript %restart-kernel ()
+  ;; Note: THIS WILL NOT PROMPT!
+  (%nb-chain kernel (restart)))
+
+(define-command restart-kernel ()
+  "Restart the kernel for the active buffer."
+  (with-result (y-n-p (read-from-minibuffer
+		       (make-instance 'minibuffer
+				      :input-prompt "Are you sure you want to restart the kernel? (yes or no):"
+				      :completion-function
+				      (lambda (x) '("no" "yes")))))
+    (when (string= y-n-p "yes")
+      (%restart-kernel))))
+
+(define-parenscript %clear-all-output ()
+  (%nb-chain (clear_all_output)))
+
+(define-command restart-clear-output ()
+  "Restart the kernel for the active buffer, and clear all cell outputs."
+  (with-result (y-n-p (read-from-minibuffer
+		       (make-instance 'minibuffer
+				      :input-prompt "Are you sure you want to restart the kernel and clear all outputs? (yes or no):"
+				      :completion-function
+				      (lambda (x) '("no" "yes")))))
+    (when (string= y-n-p "yes")
+      (%restart-kernel)
+      (%clear-all-output))))
+
+(define-parenscript %shutdown-kernel ()
+  (%nb-chain kernel (kill)))
+
+(define-command shutdown-kernel ()
+  "Shutdown the kernel for the active buffer."
+  (with-result (y-n-p (read-from-minibuffer
+		       (make-instance 'minibuffer
+				      :input-prompt "Are you sure you want to shutdown the kernel? (yes or no):"
+				      :completion-function
+				      (lambda (x) '("no" "yes")))))
+    (when (string= y-n-p "yes")
+      (%shutdown-kernel))))
+
+(define-ps-command toggle-cell-output ()
+  "Toggle output folding in a selected code cell."
+  (let ((cell (%nb-chain (get_selected_cell))))
+    (when (string= (ps:chain cell cell_type) (ps:lisp "code"))
+      (ps:chain cell (toggle_output)))))
 
 (define-mode jupyter-nb-mode ()
   "A mode for interacting with Jupyter notebooks, with facilities for editing
