@@ -180,6 +180,7 @@ the notebook's contents using the emacsclient mechanism."
 	 (scroll-ammt 0.25))
 
      (define-key :keymap vi-map
+       "TAB" #'toggle-cell-output
        "g g" #'select-first-cell
        "G" #'select-last-cell
        "C-c C-c" #'execute-selected-cells
@@ -194,15 +195,18 @@ the notebook's contents using the emacsclient mechanism."
        "C-e" (lambda () (nb-scroll :ammt scroll-ammt))
        "C-y" (lambda () (nb-scroll :ammt (* -1 scroll-ammt)))
        "C-f" #'nb-scroll-page-down
-       "C-b" #'nb-scroll-page-up)
+       "C-b" #'nb-scroll-page-up
+       "C-x C-s" #'save-checkpoint)
 
      (define-key :keymap emacs-map
+       "TAB" #'toggle-cell-output
        "C-n" #'select-next-cell
        "C-p" #'select-prev-cell
        "C-c C-c" #'execute-selected-cells
        "C-c C-l" #'execute-all-cells
        "SPACE" #'nb-scroll-page-down
-       "s-SPACE" #'nb-scroll-page-up)
+       "s-SPACE" #'nb-scroll-page-up
+       "C-x C-s" #'save-checkpoint)
 
        (list :vi-normal vi-map
 	     :emacs emacs-map)))))
