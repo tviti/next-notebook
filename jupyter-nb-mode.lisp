@@ -140,7 +140,6 @@ what constitutes a checkpoint)."
 (define-parenscript %clear-all-output ()
   (%nb-chain (clear_all_output)))
 
-(define-command restart-clear-output ()
 (define-command clear-all-output ()
   "Restart the kernel for the active buffer, and clear all cell outputs."
   (with-result (y-n-p (read-from-minibuffer
@@ -151,6 +150,7 @@ what constitutes a checkpoint)."
     (when (string= y-n-p "yes")
       (%clear-all-output))))
 
+(define-command restart-clear-all-output ()
   "Restart the kernel for the active buffer, and clear all cell outputs."
   (with-result (y-n-p (read-from-minibuffer
 		       (make-instance 'minibuffer
