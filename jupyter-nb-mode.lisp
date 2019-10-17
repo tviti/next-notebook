@@ -141,6 +141,16 @@ what constitutes a checkpoint)."
   (%nb-chain (clear_all_output)))
 
 (define-command restart-clear-output ()
+(define-command clear-all-output ()
+  "Restart the kernel for the active buffer, and clear all cell outputs."
+  (with-result (y-n-p (read-from-minibuffer
+		       (make-instance 'minibuffer
+				      :input-prompt "Are you sure you want to clear all outputs? (yes or no):"
+				      :completion-function
+				      (lambda (x) '("no" "yes")))))
+    (when (string= y-n-p "yes")
+      (%clear-all-output))))
+
   "Restart the kernel for the active buffer, and clear all cell outputs."
   (with-result (y-n-p (read-from-minibuffer
 		       (make-instance 'minibuffer
