@@ -1,6 +1,6 @@
 (uiop:define-package :next/jupyter-nb-mode
     (:use :next :common-lisp :ps)
-    (:documentation "Mode for interacting with Jupyter notebooks."))
+  (:documentation "Mode for interacting with Jupyter notebooks."))
 (in-package :next/jupyter-nb-mode)
 
 (ps:defpsmacro %nb-chain (&rest args)
@@ -180,6 +180,15 @@ what constitutes a checkpoint)."
     (when (string= (ps:chain cell cell_type) (ps:lisp "code"))
       (ps:chain cell (toggle_output)))))
 
+(define-command goto-parent-dir-new-buffer ()
+  "Navigate to the active buffer's parent dir, in the NB web interface."
+  (let* ((buffer (make-buffer))
+	 (url (url (current-buffer))))
+    (set-current-buffer buffer)
+    (cl-ppcre:register-groups-bind (parent-url fn)
+	("(.*\\/)(.*?\\.ipynb)"  url)
+      (set-url parent-url :buffer buffer))))
+
 (define-mode jupyter-nb-mode ()
   "A mode for interacting with Jupyter notebooks, with facilities for editing
 the notebook's contents using the emacsclient mechanism."
@@ -206,7 +215,8 @@ the notebook's contents using the emacsclient mechanism."
        "C-y" (lambda () (nb-scroll :ammt (* -1 scroll-ammt)))
        "C-f" #'nb-scroll-page-down
        "C-b" #'nb-scroll-page-up
-       "C-x C-s" #'save-checkpoint)
+       "C-x C-s" #'save-checkpoint
+       "^" #'goto-parent-dir-new-buffer)
 
      (define-key :keymap emacs-map
        "TAB" #'toggle-cell-output
