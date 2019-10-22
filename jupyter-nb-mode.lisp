@@ -3,6 +3,12 @@
   (:documentation "Mode for interacting with Jupyter notebooks."))
 (in-package :next/jupyter-nb-mode)
 
+(defparameter +nb-server-url+ "http://localhost:8888"
+  "Url to access the notebook server from.")
+
+(defvar *jupyter-nb-buffers* '()
+  "List of notebook buffers")
+
 (ps:defpsmacro %nb-chain (&rest args)
   "Like calling `ps:chain', where each result starts with Jupyter.notebook"
   `(ps:chain *jupyter notebook ,@args))
@@ -179,6 +185,16 @@ what constitutes a checkpoint)."
   (let ((cell (%nb-chain (get_selected_cell))))
     (when (string= (ps:chain cell cell_type) (ps:lisp "code"))
       (ps:chain cell (toggle_output)))))
+
+(define-command goto-server-root ()
+  "Navigate to the root directory of the running server."
+  (set-url  +nb-server-url+))
+
+(define-command goto-server-root-new-buffer ()
+  "Navigate to the root directory of the running server."
+  (let ((buffer (make-buffer)))
+    (set-current-buffer buffer)
+    (set-url  +nb-server-url+ :buffer buffer)))
 
 (define-command goto-parent-dir-new-buffer ()
   "Navigate to the active buffer's parent dir, in the NB web interface."
