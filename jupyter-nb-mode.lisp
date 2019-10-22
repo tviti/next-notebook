@@ -82,8 +82,12 @@ ARGS must be key arguments."
   (%nb-chain (select_prev))
   (%nb-chain (focus_cell)))
 
-(define-ps-command copy-cell ()
-  (%nb-chain (copy_cell)))
+(define-ps-command paste-cell-above ()
+  (%nb-chain (paste_cell_above)))
+
+(define-ps-command paste-cell-below ()
+  (%nb-chain (paste_cell_below)))
+
 
 (define-ps-command delete-cells ()
   (%nb-chain (delete_cells)))
@@ -108,8 +112,12 @@ what constitutes a checkpoint)."
   (%nb-chain (save_checkpoint)))
 
 (define-ps-command copy-cell ()
-  "Copy the selected cell(s)."
+  "Copy the selected cell."
   (%nb-chain (copy_cell)))
+
+(define-ps-command cut-cell ()
+  "Cut the selected cell."
+  (%nb-chain (cut_cell)))
 
 (define-ps-command nb-scroll ((ammt))
   "Scroll the page by ammt using the notebook's scroll_manager."
@@ -206,6 +214,10 @@ the notebook's contents using the emacsclient mechanism."
        "C-c C-l" #'execute-all-cells
        "C-c '" #'edit-cell
        "C-c \"" #'edit-cell-metadata
+       "Y" #'copy-cell
+       "x" #'cut-cell
+       "p" #'paste-cell-below
+       "P" #'paste-cell-above
        "o" #'open-below  ;; NOTE: These will override default bindings!
        "O" #'open-above  ;; NOTE: These will override default bindings!
        "d" #'delete-cells
