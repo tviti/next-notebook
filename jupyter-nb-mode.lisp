@@ -92,6 +92,29 @@ ARGS must be key arguments."
 (define-ps-command delete-cells ()
   (%nb-chain (delete_cells)))
 
+(defun cell-type-completion-fun (input)
+  (let ((candidates '("code" "markdown" "raw")))
+    (fuzzy-match input candidates)))
+
+(define-command set-cell-type ()
+  (with-result (type (read-from-minibuffer
+		      (make-instance 'minibuffer
+				     :input-prompt "Cell type:"
+				     :completion-function
+				     #'cell-type-completion-fun)))
+    ;; TODO: Can we just setup cell-type-completion-fun to return the right
+    ;; thing, instead of doing a switch-case on the retval?
+    (let ((type-cmd (cond
+		      ((string= type "markdown")
+		       '(to_markdown))
+		      ((string= type "raw")
+		       '(to_raw))
+		      ((string= type "code")
+		       '(to_code)))))
+      (rpc-buffer-evaluate-javascript
+       (current-buffer)
+       (ps:ps (ps:lisp `(%nb-chain ,type-cmd)))))))
+						 
 (define-command edit-cell (&optional (buffer (current-buffer)))
   "Open the selected cell's source in an emacs buffer for editing, using a
 temporary file (whose location is currently hardcoded). The temporary files
