@@ -215,6 +215,7 @@ the notebook's contents using the emacsclient mechanism."
        "C-y" (lambda () (nb-scroll :ammt (* -1 scroll-ammt)))
        "C-f" #'nb-scroll-page-down
        "C-b" #'nb-scroll-page-up
+       "C-x B" #'switch-to-nb-buffer ;; FIXME: undef. warning
        "C-x C-s" #'save-checkpoint
        "^" #'goto-parent-dir-new-buffer)
 
@@ -296,3 +297,18 @@ will be .json."
   (request-cell-data (lambda (js-result)
 		       (edit-cell-metadata-callback
 			js-result (current-buffer)))))
+
+(in-package :next)
+(define-command switch-to-nb-buffer ()
+  "Query for and switch to a jupyter-nb-mode buffer."
+  (let* ((buffers (alexandria:hash-table-values (buffers *interface*)))
+	 (blist))
+    (mapcar (lambda (b)
+	      (when (find-mode b 'jupyter-nb-mode)
+		(push b blist))) buffers)
+    (with-result (buffer (read-from-minibuffer
+			  (make-instance 'minibuffer
+					 :input-prompt "Switch to buffer:"
+					 :completion-function (lambda (input)
+								(fuzzy-match input blist)))))
+      (set-current-buffer buffer))))
