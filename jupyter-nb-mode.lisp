@@ -223,6 +223,7 @@ the notebook's contents using the emacsclient mechanism."
        "d" #'delete-cells
        "j" #'select-next-cell
        "k" #'select-prev-cell
+       "; f" #'next:follow-hint-new-nb-buffer
        "C-e" (lambda () (nb-scroll :ammt scroll-ammt))
        "C-y" (lambda () (nb-scroll :ammt (* -1 scroll-ammt)))
        "C-f" #'nb-scroll-page-down
@@ -310,7 +311,7 @@ will be .json."
 		       (edit-cell-metadata-callback
 			js-result (current-buffer)))))
 
-(in-package :next)
+;; (in-package :next)
 (define-command switch-to-nb-buffer ()
   "Query for and switch to a jupyter-nb-mode buffer."
   (let* ((buffers (alexandria:hash-table-values (buffers *interface*)))
@@ -324,3 +325,12 @@ will be .json."
 					 :completion-function (lambda (input)
 								(fuzzy-match input blist)))))
       (set-current-buffer buffer))))
+
+(in-package :next)
+(define-command follow-hint-new-nb-buffer ()
+  "Open a link hint in a new buffer that has jupyter-nb-mode enabled."
+  (query-hints "Open notebook in new buffer:" (selected-link)
+    (let ((new-buffer (make-buffer)))
+      (next/jupyter-nb-mode:jupyter-nb-mode :buffer new-buffer)
+      (set-url selected-link :buffer new-buffer
+               :raw-url-p t))))
