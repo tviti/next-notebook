@@ -72,6 +72,35 @@ ARGS must be key arguments."
   "Run the entire notebook."
   (%nb-chain (execute_all_cells)))
 
+(define-ps-command save-notebook ()
+  "Save the currently active notebook."
+  (%nb-chain (save_notebook)))
+
+(define-ps-command save-checkpoint ()
+  "Create a checkpoint (not sure; I don't manually do this so I'm not positive
+what constitutes a checkpoint)."
+  (%nb-chain (save_checkpoint)))
+
+;;
+;; Cell manipulation commands
+;;
+(define-command edit-cell (&optional (buffer (current-buffer)))
+  "Open the selected cell's source in an emacs buffer for editing, using a
+temporary file (whose location is currently hardcoded). The temporary files
+extension is chosen based on the cell's type, with code cells given a `.py`
+extension, markdown cells a `.md`, and all others `.txt`. Thus, emacs should
+drop you into the appropriate mode when the buffer is created."
+  ;; TODO: Change this to `request-cell-contents'
+  (request-cell-data (lambda (retval)
+		       (edit-cell-callback retval buffer))))
+(define-ps-command copy-cell ()
+  "Copy the selected cell."
+  (%nb-chain (copy_cell)))
+
+(define-ps-command cut-cell ()
+  "Cut the selected cell."
+  (%nb-chain (cut_cell)))
+
 (define-ps-command open-below ()
   (%nb-chain (insert_cell_below))
   (%nb-chain (select_next))
@@ -88,36 +117,8 @@ ARGS must be key arguments."
 (define-ps-command paste-cell-below ()
   (%nb-chain (paste_cell_below)))
 
-
 (define-ps-command delete-cells ()
   (%nb-chain (delete_cells)))
-
-(define-command edit-cell (&optional (buffer (current-buffer)))
-  "Open the selected cell's source in an emacs buffer for editing, using a
-temporary file (whose location is currently hardcoded). The temporary files
-extension is chosen based on the cell's type, with code cells given a `.py`
-extension, markdown cells a `.md`, and all others `.txt`. Thus, emacs should
-drop you into the appropriate mode when the buffer is created."
-  ;; TODO: Change this to `request-cell-contents'
-  (request-cell-data (lambda (retval)
-		       (edit-cell-callback retval buffer))))
-
-(define-ps-command save-notebook ()
-  "Save the currently active notebook."
-  (%nb-chain (save_notebook)))
-
-(define-ps-command save-checkpoint ()
-  "Create a checkpoint (not sure; I don't manually do this so I'm not positive
-what constitutes a checkpoint)."
-  (%nb-chain (save_checkpoint)))
-
-(define-ps-command copy-cell ()
-  "Copy the selected cell."
-  (%nb-chain (copy_cell)))
-
-(define-ps-command cut-cell ()
-  "Cut the selected cell."
-  (%nb-chain (cut_cell)))
 
 (define-ps-command nb-scroll ((ammt))
   "Scroll the page by ammt using the notebook's scroll_manager."
